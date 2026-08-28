@@ -1,0 +1,10 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "promote-admin": "tsx scripts/promote-admin.mjs",
+    "seed-demo": "tsx scripts/seed-demo.mjs"
+  }
+}

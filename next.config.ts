@@ -1,24 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  experimental: {
-    // Enable experimental features if needed
+  // Allow next/image to fetch from our text-to-image CDN
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "coresg-normal.trae.ai",
+        pathname: "/api/ide/v1/text_to_image",
+      },
+    ],
   },
-  // Ensure proper handling of Vercel Analytics and Speed Insights
-  // headers: async () => {
-  //   return [
-  //     {
-  //       source: '/_vercel/speed-insights/script.js',
-  //       headers: [
-  //         {
-  //           key: 'Cache-Control',
-  //           value: 'public, max-age=31536000, immutable',
-  //         },
-  //       ],
-  //     },
-  //   ];
-  // },
 };
 
 export default nextConfig;

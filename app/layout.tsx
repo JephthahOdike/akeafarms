@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { SITE_NAME, SITE_URL } from '@/lib/utils';
 import './globals.css';
 
 const geistSans = Geist({
@@ -9,18 +10,23 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: 'Platforms Starter Kit',
-  description: 'Next.js template for building a multi-tenant SaaS.'
+  title: {
+    default: `${SITE_NAME} – Agricultural Marketplace`,
+    template: `%s | ${SITE_NAME}`
+  },
+  description:
+    'A trusted agricultural marketplace connecting buyers directly with verified Nigerian farmers, distributors, and agro-businesses.',
+  metadataBase: new URL(SITE_URL)
 };
 
 export default function RootLayout({
   children
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} antialiased`}>
+    <html lang="en" className={geistSans.variable}>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         {children}
         <SpeedInsights />
       </body>
