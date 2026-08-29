@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Percent, DollarSign } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatNaira } from '@/lib/utils';
 import { CommissionEditor } from '@/components/admin/commission-editor';
@@ -17,6 +18,7 @@ const SETTLEMENT_COLORS: Record<string, string> = {
 };
 
 export default async function AdminCommissionsPage() {
+  await requirePermission('settlements.view');
   const supabase = await createClient();
 
   const { data: rates } = await supabase

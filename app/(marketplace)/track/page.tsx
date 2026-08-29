@@ -2,7 +2,11 @@ import { Truck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import TrackForm, { TrackingTimeline, TrackingStatusBadge } from '@/components/tracking/track-form';
 
-export const metadata = { title: 'Track Order' };
+// Order tracking with private order details: never indexed by search engines.
+export const metadata = {
+  title: 'Track Order',
+  robots: { index: false, follow: false }
+};
 
 type SearchParams = Promise<{ order?: string }>;
 

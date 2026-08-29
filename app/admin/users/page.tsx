@@ -1,10 +1,12 @@
 import { Users, UserCheck, Store, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const metadata = { title: 'Users' };
 
 export default async function AdminUsersPage() {
+  await requirePermission('users.view');
   const supabase = await createClient();
 
   const { data: users } = await supabase

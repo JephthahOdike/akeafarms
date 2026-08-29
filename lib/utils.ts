@@ -1,8 +1,29 @@
 import { clsx, type ClassValue } from 'clsx';
 
 export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'Akea Farms';
-export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+/**
+ * Normalize the configured site URL to the canonical production domain
+ * (https://www.akeafarms.com) while keeping development fallbacks intact.
+ */
+function normalizeSiteUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    if (
+      parsed.hostname === 'akeafarms.com' ||
+      parsed.hostname === 'www.akeafarms.com'
+    ) {
+      return 'https://www.akeafarms.com';
+    }
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return 'http://localhost:3000';
+  }
+}
+
+export const SITE_URL = normalizeSiteUrl(
+  process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+);
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);

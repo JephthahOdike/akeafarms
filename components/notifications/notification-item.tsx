@@ -6,6 +6,7 @@ import {
   Bell,
   CreditCard,
   Megaphone,
+  MessageSquare,
   Package,
   Tag,
   Truck,
@@ -22,7 +23,8 @@ const TYPE_ICONS = {
   settlement: Wallet,
   promotion: Tag,
   announcement: Megaphone,
-  system: Bell
+  system: Bell,
+  message: MessageSquare
 } as const;
 
 const TYPE_STYLES: Record<string, string> = {
@@ -32,7 +34,8 @@ const TYPE_STYLES: Record<string, string> = {
   settlement: 'bg-emerald-100 text-emerald-700',
   promotion: 'bg-amber-100 text-amber-700',
   announcement: 'bg-purple-100 text-purple-700',
-  system: 'bg-gray-100 text-gray-700'
+  system: 'bg-gray-100 text-gray-700',
+  message: 'bg-teal-100 text-teal-700'
 };
 
 function timeAgo(iso: string) {

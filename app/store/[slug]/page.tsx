@@ -11,17 +11,51 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/button';
-import { formatNaira } from '@/lib/utils';
+import { formatNaira, SITE_NAME } from '@/lib/utils';
+import { absoluteUrl, breadcrumbJsonLd } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
+import type { Metadata } from 'next';
 
 export async function generateMetadata({
   params
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
-  const { data } = await supabase.from('stores').select('name').eq('slug', slug).single();
-  return { title: data?.name || 'Store' };
+  const { data: store } = await supabase
+    .from('stores')
+    .select('name, description, banner_url, logo_url')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (!store) {
+    return {
+      title: 'Store not found',
+      robots: { index: false, follow: false }
+    };
+  }
+
+  const image = store.banner_url || store.logo_url;
+  const description =
+    store.description?.replace(/\s+/g, ' ').trim().slice(0, 157).trim() ||
+    `Shop products from ${store.name} on ${SITE_NAME}.`;
+
+  return {
+    title: store.name,
+    description,
+    alternates: { canonical: `/store/${slug}` },
+    openGraph: {
+      title: store.name,
+      description,
+      url: `/store/${slug}`,
+      siteName: SITE_NAME,
+      type: 'website',
+      locale: 'en_NG',
+      ...(image ? { images: [{ url: absoluteUrl(image) }] } : {})
+    },
+    twitter: { card: 'summary_large_image', title: store.name, description }
+  };
 }
 
 export default async function StorePage({
@@ -55,7 +89,6 @@ export default async function StorePage({
        product_images(url, is_primary)`)
     .eq('store_id', store.id)
     .eq('status', 'active')
-    .eq('is_approved', true)
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -92,7 +125,28 @@ export default async function StorePage({
         </div>
       </div>
 
+      {/* Structured data: BreadcrumbList */}
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Stores', path: '/stores' },
+          { name: store.name, path: `/store/${slug}` }
+        ])}
+      />
+
       <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mx-auto max-w-7xl mb-6 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/" className="hover:text-foreground">
+            Home
+          </Link>
+          <span>/</span>
+          <Link href="/stores" className="hover:text-foreground">
+            All Stores
+          </Link>
+          <span>/</span>
+          <span className="text-foreground font-medium">{store.name}</span>
+        </nav>
+
         <div className="mx-auto max-w-7xl">
           <div className="lg:grid lg:grid-cols-3 lg:gap-8">
             {/* Main */}

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { CategoryForm } from '@/components/admin/category-form';
 
 export const metadata = { title: 'Edit Category' };
@@ -9,6 +10,7 @@ export default async function EditCategoryPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission('products.manage');
   const { id } = await params;
   const supabase = await createClient();
 

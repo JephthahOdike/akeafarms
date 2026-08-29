@@ -88,8 +88,14 @@ export async function loginAction(
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .single();
+
+  // Deactivated accounts are refused at the door.
+  if (profile && (profile as { is_active?: boolean }).is_active === false) {
+    await supabase.auth.signOut();
+    return { error: 'This account has been deactivated. Contact support.' };
+  }
 
   // Audit: log admin logins
   const role = (profile?.role as UserRole) ?? 'buyer';

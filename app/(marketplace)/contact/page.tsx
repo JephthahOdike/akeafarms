@@ -1,12 +1,26 @@
+import Link from 'next/link';
 import { Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { getPlatformSettings } from '@/lib/settings/platform';
+import { getCurrentUser } from '@/lib/auth/helpers';
+import { NewTicketForm } from '@/components/support/new-ticket-form';
 
-export const metadata = { title: 'Contact Us' };
+import { buildPageMetadata } from '@/lib/seo';
 
-export default function ContactPage() {
+export const metadata = buildPageMetadata({
+  title: 'Contact Us',
+  description:
+    'Get in touch with the Akea Farms team — support tickets, email, phone and location details.',
+  path: '/contact'
+});
+
+export default async function ContactPage() {
+  // Contact channels are platform configuration (Phase 11 admin settings),
+  // not hardcoded marketing copy.
+  const settings = await getPlatformSettings();
+  const user = await getCurrentUser();
+
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
@@ -20,21 +34,21 @@ export default function ContactPage() {
             <CardContent className="pt-6 text-center">
               <Mail className="mx-auto size-8 text-primary" />
               <h3 className="mt-3 font-semibold">Email</h3>
-              <p className="text-sm text-muted-foreground">help.akeafarms@gmail.com</p>
+              <p className="text-sm text-muted-foreground">{settings.supportEmail}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6 text-center">
               <Phone className="mx-auto size-8 text-primary" />
               <h3 className="mt-3 font-semibold">Phone</h3>
-              <p className="text-sm text-muted-foreground">08029965942</p>
+              <p className="text-sm text-muted-foreground">{settings.supportPhone}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6 text-center">
               <MessageCircle className="mx-auto size-8 text-primary" />
               <h3 className="mt-3 font-semibold">WhatsApp</h3>
-              <p className="text-sm text-muted-foreground">08100217845</p>
+              <p className="text-sm text-muted-foreground">{settings.supportWhatsapp}</p>
             </CardContent>
           </Card>
           <Card>
@@ -49,16 +63,33 @@ export default function ContactPage() {
         <Card>
           <CardHeader>
             <CardTitle>Send a Message</CardTitle>
-            <CardDescription>We'll get back to you within 24 hours.</CardDescription>
+            <CardDescription>
+              Your message becomes a support ticket — track replies from your account&apos;s
+              Support page. We&apos;ll get back to you within 24 hours.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div><Label htmlFor="name">Name</Label><Input id="name" placeholder="Your name" /></div>
-              <div><Label htmlFor="email">Email</Label><Input id="email" type="email" placeholder="you@example.com" /></div>
-            </div>
-            <div><Label htmlFor="subject">Subject</Label><Input id="subject" placeholder="How can we help?" /></div>
-            <div><Label htmlFor="message">Message</Label><textarea id="message" rows={4} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" placeholder="Your message..." /></div>
-            <Button className="w-full">Send Message</Button>
+          <CardContent>
+            {user ? (
+              <NewTicketForm
+                basePath={
+                  user.profile.role === 'seller' ? '/seller/support' : '/buyer/support'
+                }
+              />
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Sign in to open a support ticket so we can track and respond to your
+                  request. You can also email us at{' '}
+                  <a href={`mailto:${settings.supportEmail}`} className="text-primary hover:underline">
+                    {settings.supportEmail}
+                  </a>
+                  .
+                </p>
+                <Button asChild>
+                  <Link href="/login">Sign in to contact support</Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireUser, getCurrentUser } from '@/lib/auth/helpers';
+import { isEmployeePermission } from '@/lib/auth/permissions';
 import { logAudit } from '@/lib/audit';
 import { uploadAvatar } from './avatar';
 import {
@@ -601,19 +602,224 @@ export async function updateSellerBankInfo(
 }
 
 /* ------------------------------------------------------------------ */
+/*  Admin — Platform Configuration (Phase 11)                          */
+/* ------------------------------------------------------------------ */
+
+const SUPPORT_EMAIL_KEYS = ['support_email'] as const;
+const SUPPORT_PHONE_KEYS = ['support_phone', 'support_whatsapp'] as const;
+
+const platformSettingsSchema = z.object({
+  support_email: z
+    .string()
+    .email('Enter a valid email address')
+    .max(200)
+    .optional(),
+  support_phone: z
+    .string()
+    .regex(/^(\+234|0)?[7-9][0-1]\d{8}$/, 'Enter a valid Nigerian phone number')
+    .optional(),
+  support_whatsapp: z
+    .string()
+    .regex(/^(\+234|0)?[7-9][0-1]\d{8}$/, 'Enter a valid Nigerian phone number')
+    .optional(),
+  shipping_flat_fee: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, 'Enter a non-negative amount (e.g. 500)')
+    .optional(),
+  catalog_auto_approve_products: z.enum(['true', 'false']).optional()
+});
+
+/**
+ * Admin-only platform configuration upsert. Only keys present in the
+ * FormData are written, so each settings card can post independently.
+ * Values are strictly validated before they touch the database; secrets
+ * (API keys etc.) are never accepted through this path — they live in
+ * environment variables only.
+ */
+export async function updatePlatformSettings(
+  _prev: SettingsActionResult | null,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const user = await requireUser();
+  if (user.profile.role !== 'admin') {
+    return { error: 'Only administrators can change platform settings.' };
+  }
+
+  const raw: Record<string, string> = {};
+  for (const key of [
+    ...SUPPORT_EMAIL_KEYS,
+    ...SUPPORT_PHONE_KEYS,
+    'shipping_flat_fee',
+    'catalog_auto_approve_products'
+  ]) {
+    const value = formData.get(key);
+    if (value !== null && String(value).trim() !== '') {
+      raw[key] = String(value).trim();
+    }
+  }
+
+  if (Object.keys(raw).length === 0) {
+    return { error: 'Nothing to save.' };
+  }
+
+  const parsed = platformSettingsSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      error: 'Please fix the errors below.',
+      fieldErrors: Object.fromEntries(
+        parsed.error.issues.map((e) => [e.path.join('.'), e.message])
+      )
+    };
+  }
+
+  const supabase = await createClient();
+  const updates: { key: string; value: unknown }[] = [];
+  const changed: string[] = [];
+
+  if (parsed.data.support_email !== undefined) {
+    updates.push({ key: 'support_email', value: parsed.data.support_email });
+    changed.push('support_email');
+  }
+  if (parsed.data.support_phone !== undefined) {
+    updates.push({ key: 'support_phone', value: parsed.data.support_phone });
+    changed.push('support_phone');
+  }
+  if (parsed.data.support_whatsapp !== undefined) {
+    updates.push({ key: 'support_whatsapp', value: parsed.data.support_whatsapp });
+    changed.push('support_whatsapp');
+  }
+  if (parsed.data.shipping_flat_fee !== undefined) {
+    updates.push({ key: 'shipping_flat_fee', value: Number(parsed.data.shipping_flat_fee) });
+    changed.push('shipping_flat_fee');
+  }
+  if (parsed.data.catalog_auto_approve_products !== undefined) {
+    updates.push({
+      key: 'catalog_auto_approve_products',
+      value: parsed.data.catalog_auto_approve_products === 'true'
+    });
+    changed.push('catalog_auto_approve_products');
+  }
+
+  // RLS on platform_settings allows admin writes only; updated_by is the
+  // session admin, never a client value.
+  const { error } = await supabase.from('platform_settings').upsert(
+    updates.map((u) => ({ key: u.key, value: u.value, updated_by: user.id })),
+    { onConflict: 'key' }
+  );
+
+  if (error) {
+    console.error('[admin] Platform settings update error:', error.message);
+    return { error: 'Failed to save platform settings.' };
+  }
+
+  logAudit({
+    user_id: user.id,
+    action: 'PLATFORM_SETTINGS_UPDATED',
+    resource: 'platform_settings',
+    metadata: { keys: changed }
+  }).catch(() => {});
+
+  revalidatePath('/admin/settings');
+  revalidatePath('/admin/support');
+  revalidatePath('/contact');
+  revalidatePath('/checkout');
+  return { success: true };
+}
+
+/**
+ * Admin-only announcement broadcast: creates an in-app notification for
+ * every active profile (batched through the service client, since user
+ * clients are RLS-confined to their own rows). Announcements are always
+ * delivered in-app (notification type 'announcement' is not preference-
+ * gated). Deliberately NOT emailed — bulk unsolicited email is out of
+ * scope for the Brevo transactional setup.
+ */
+export async function sendPlatformAnnouncement(
+  _prev: SettingsActionResult | null,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const user = await requireUser();
+  if (user.profile.role !== 'admin') {
+    return { error: 'Only administrators can send announcements.' };
+  }
+
+  const subject = String(formData.get('subject') ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, 120);
+  const message = String(formData.get('message') ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, 1000);
+
+  if (subject.length < 3) {
+    return { error: 'Please fix the errors below.', fieldErrors: { subject: 'Subject must be at least 3 characters.' } };
+  }
+  if (message.length < 3) {
+    return { error: 'Please fix the errors below.', fieldErrors: { message: 'Message must be at least 3 characters.' } };
+  }
+
+  const service = createServiceClient();
+
+  // Active profiles only — deactivated accounts must not receive anything.
+  const { data: profiles, error: profilesErr } = await service
+    .from('profiles')
+    .select('id')
+    .eq('is_active', true);
+
+  if (profilesErr || !profiles) {
+    console.error('[admin] Announcement recipients error:', profilesErr?.message);
+    return { error: 'Failed to load announcement recipients.' };
+  }
+
+  const BATCH_SIZE = 500;
+  const rows = (profiles as { id: string }[]).map((p) => ({
+    user_id: p.id,
+    type: 'announcement' as const,
+    title: subject,
+    body: message
+  }));
+
+  let delivered = 0;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const { error: insertErr } = await service.from('notifications').insert(batch);
+    if (insertErr) {
+      console.error('[admin] Announcement batch insert error:', insertErr.message);
+      return { error: `Announcement partially failed after ${delivered} deliveries.` };
+    }
+    delivered += batch.length;
+  }
+
+  logAudit({
+    user_id: user.id,
+    action: 'PLATFORM_ANNOUNCEMENT_SENT',
+    resource: 'notifications',
+    metadata: { subject, recipients: delivered }
+  }).catch(() => {});
+
+  revalidatePath('/admin/settings');
+  return { success: true, fieldErrors: { delivered: String(delivered) } };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Admin — Employee Management                                        */
 /* ------------------------------------------------------------------ */
 
 const AVAILABLE_PERMISSIONS = [
+  'users.view',
+  'sellers.view',
+  'sellers.manage',
+  'products.view',
+  'products.manage',
   'orders.view',
   'orders.manage',
-  'products.manage',
-  'sellers.manage',
-  'users.manage',
   'payments.view',
+  'settlements.view',
+  'tracking.manage',
   'support.manage',
-  'reports.view',
-  'settings.manage'
+  'messages.view',
+  'reports.view'
 ] as const;
 
 export type EmployeeWithPermissions = {
@@ -621,6 +827,7 @@ export type EmployeeWithPermissions = {
   email: string;
   full_name: string;
   role: string;
+  is_active: boolean;
   permissions: string[];
 };
 
@@ -633,7 +840,7 @@ export async function getEmployees(): Promise<EmployeeWithPermissions[]> {
   // Get all non-admin profiles
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, is_active')
     .neq('role', 'admin')
     .order('created_at', { ascending: false });
 
@@ -653,6 +860,7 @@ export async function getEmployees(): Promise<EmployeeWithPermissions[]> {
 
   return profiles.map((p) => ({
     ...p,
+    is_active: (p as { is_active?: boolean }).is_active !== false,
     permissions: permMap.get(p.id) || []
   }));
 }
@@ -666,7 +874,25 @@ export async function grantPermission(
     return { error: 'Only administrators can manage permissions.' };
   }
 
+  if (!isEmployeePermission(permission)) {
+    return { error: 'Unknown permission.' };
+  }
+
+  // Target must be an existing employee — never an admin, and never a
+  // buyer/seller that could be granted dashboard access without promotion.
   const supabase = await createClient();
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', employeeId)
+    .single();
+
+  if (!target) {
+    return { error: 'User not found.' };
+  }
+  if ((target as { role: string }).role !== 'employee') {
+    return { error: 'Permissions can only be granted to employees.' };
+  }
 
   const { error } = await supabase.from('employee_permissions').upsert(
     {
@@ -776,6 +1002,200 @@ export async function upgradeToEmployee(
   }).catch(() => {});
 
   revalidatePath('/admin/settings');
+  return { success: true };
+}
+
+/**
+ * Deactivate an employee account. The employee can no longer log in
+ * (enforced in loginAction and getCurrentUser). Permissions are kept so
+ * an admin can reactivate later without re-assigning access.
+ */
+export async function deactivateEmployee(
+  userId: string
+): Promise<SettingsActionResult> {
+  const user = await requireUser();
+  if (user.profile.role !== 'admin') {
+    return { error: 'Only administrators can deactivate employees.' };
+  }
+
+  if (userId === user.id) {
+    return { error: 'You cannot deactivate your own account.' };
+  }
+
+  const supabase = await createClient();
+
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('role, email')
+    .eq('id', userId)
+    .single();
+
+  if (!target) {
+    return { error: 'User not found.' };
+  }
+
+  const targetRole = (target as { role: string }).role;
+  if (targetRole === 'admin') {
+    return { error: 'Cannot deactivate an admin.' };
+  }
+  if (targetRole !== 'employee') {
+    return { error: 'Only employees can be deactivated here.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_active: false })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[admin] Deactivate employee error:', error.message);
+    return { error: 'Failed to deactivate employee.' };
+  }
+
+  logAudit({
+    user_id: user.id,
+    action: 'EMPLOYEE_DEACTIVATED',
+    resource: 'profiles',
+    resource_id: userId,
+    metadata: { email: (target as { email: string }).email }
+  }).catch(() => {});
+
+  revalidatePath('/admin/settings');
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+/** Reactivate a previously deactivated employee. */
+export async function reactivateEmployee(
+  userId: string
+): Promise<SettingsActionResult> {
+  const user = await requireUser();
+  if (user.profile.role !== 'admin') {
+    return { error: 'Only administrators can reactivate employees.' };
+  }
+
+  const supabase = await createClient();
+
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (!target) {
+    return { error: 'User not found.' };
+  }
+  if ((target as { role: string }).role !== 'employee') {
+    return { error: 'Only employees can be reactivated here.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_active: true })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[admin] Reactivate employee error:', error.message);
+    return { error: 'Failed to reactivate employee.' };
+  }
+
+  logAudit({
+    user_id: user.id,
+    action: 'EMPLOYEE_REACTIVATED',
+    resource: 'profiles',
+    resource_id: userId
+  }).catch(() => {});
+
+  revalidatePath('/admin/settings');
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+/**
+ * Remove employee status entirely: role reverts to the pre-promotion role
+ * (restored from the EMPLOYEE_UPGRADED audit trail when available) and all
+ * granular permissions are revoked.
+ */
+export async function downgradeEmployee(
+  userId: string
+): Promise<SettingsActionResult> {
+  const user = await requireUser();
+  if (user.profile.role !== 'admin') {
+    return { error: 'Only administrators can remove employee access.' };
+  }
+
+  const supabase = await createClient();
+
+  const { data: target } = await supabase
+    .from('profiles')
+    .select('role, email')
+    .eq('id', userId)
+    .single();
+
+  if (!target) {
+    return { error: 'User not found.' };
+  }
+
+  const targetRole = (target as { role: string }).role;
+  if (targetRole === 'admin') {
+    return { error: 'Cannot change an admin.' };
+  }
+  if (targetRole !== 'employee') {
+    return { error: 'User is not an employee.' };
+  }
+
+  // Restore the role the user held before promotion, when recorded.
+  const { data: upgradeAudit } = await supabase
+    .from('audit_logs')
+    .select('metadata')
+    .eq('action', 'EMPLOYEE_UPGRADED')
+    .eq('resource_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const previousRole =
+    (upgradeAudit?.metadata as { previous_role?: string } | null)
+      ?.previous_role ?? 'buyer';
+  const restoredRole =
+    previousRole === 'seller' || previousRole === 'buyer'
+      ? previousRole
+      : 'buyer';
+
+  // Revoke all permissions, then change the role.
+  const { error: permErr } = await supabase
+    .from('employee_permissions')
+    .delete()
+    .eq('user_id', userId);
+
+  if (permErr) {
+    console.error('[admin] Downgrade revoke perms error:', permErr.message);
+    return { error: 'Failed to revoke employee permissions.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role: restoredRole })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[admin] Downgrade error:', error.message);
+    return { error: 'Failed to remove employee status.' };
+  }
+
+  logAudit({
+    user_id: user.id,
+    action: 'EMPLOYEE_DOWNGRADED',
+    resource: 'profiles',
+    resource_id: userId,
+    metadata: {
+      email: (target as { email: string }).email,
+      restored_role: restoredRole
+    }
+  }).catch(() => {});
+
+  revalidatePath('/admin/settings');
+  revalidatePath('/admin/users');
   return { success: true };
 }
 

@@ -10,13 +10,26 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `${SITE_NAME} – Agricultural Marketplace`,
     template: `%s | ${SITE_NAME}`
   },
   description:
     'A trusted agricultural marketplace connecting buyers directly with verified Nigerian farmers, distributors, and agro-businesses.',
-  metadataBase: new URL(SITE_URL)
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: 'website',
+    locale: 'en_NG',
+    siteName: SITE_NAME
+  },
+  twitter: {
+    card: 'summary_large_image'
+  },
+  robots: {
+    index: true,
+    follow: true
+  }
 };
 
 export default function RootLayout({

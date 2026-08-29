@@ -106,7 +106,7 @@ function emailLayout(title: string, body: string): string {
           <!-- Header -->
           <tr>
             <td style="background-color:#0a4d3b;padding:24px 32px;text-align:center">
-              <img src="https://akeafarms.com/logo.svg" alt="${SITE_NAME}" width="48" height="48" style="display:block;margin:0 auto 8px">
+              <img src="https://www.akeafarms.com/logo.svg" alt="${SITE_NAME}" width="48" height="48" style="display:block;margin:0 auto 8px">
               <h1 style="color:#ffffff;font-size:20px;font-weight:700;margin:0">${SITE_NAME}</h1>
             </td>
           </tr>

@@ -80,7 +80,8 @@ export type NotificationType =
   | 'settlement'
   | 'promotion'
   | 'announcement'
-  | 'system';
+  | 'system'
+  | 'message';
 
 /* ===== Row types ===================================================== */
 
@@ -467,6 +468,23 @@ type TicketMessage = {
   is_internal: boolean;
   created_at: string;
 };
+type Conversation = {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  product_id: string | null;
+  order_id: string | null;
+  last_message_at: string;
+  created_at: string;
+};
+type ConversationMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+};
 
 /* ===== Database ====================================================== */
 
@@ -501,6 +519,8 @@ export type Database = {
       notifications: TableOf<Notification>;
       support_tickets: TableOf<SupportTicket>;
       ticket_messages: TableOf<TicketMessage>;
+      conversations: TableOf<Conversation>;
+      conversation_messages: TableOf<ConversationMessage>;
       disputes: TableOf<Dispute>;
       audit_logs: TableOf<AuditLog>;
     };

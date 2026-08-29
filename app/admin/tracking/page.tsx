@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import Link from 'next/link';
 
 export const metadata = { title: 'Tracking' };
 
 export default async function AdminTrackingPage() {
+  await requirePermission('tracking.manage');
   const supabase = await createClient();
 
   const { data: events } = await supabase

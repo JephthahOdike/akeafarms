@@ -1,4 +1,11 @@
-export const metadata = { title: 'Shipping Information' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Shipping Information',
+  description:
+    'Delivery options, timelines and fees for Akea Farms orders across Nigeria.',
+  path: '/shipping'
+});
 
 export default function ShippingPage() {
   return (

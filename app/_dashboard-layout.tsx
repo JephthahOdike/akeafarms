@@ -7,7 +7,8 @@ import { Logo } from '@/components/brand/logo';
 const ROLE_REDIRECT: Record<string, string> = {
   buyer: '/buyer',
   seller: '/seller',
-  admin: '/admin'
+  admin: '/admin',
+  employee: '/admin'
 };
 
 export async function DashboardLayout({

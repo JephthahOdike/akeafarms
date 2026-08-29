@@ -2,7 +2,14 @@ import Link from 'next/link';
 import { HelpCircle, Book, MessageCircle, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const metadata = { title: 'Help Center' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Help Center',
+  description:
+    'Guides for buying on Akea Farms: getting started, placing orders, payments, tracking and returns.',
+  path: '/help'
+});
 
 const ARTICLES = [
   { title: 'Getting Started', desc: 'Learn how to navigate the marketplace', icon: Book },

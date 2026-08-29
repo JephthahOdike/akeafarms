@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import type { NavItem } from '@/components/layout/dashboard-nav';
 import { DashboardLayout } from '../_dashboard-layout';
+
+// Private application area: never indexed by search engines.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false }
+};
 
 const NAV: NavItem[] = [
   { href: '/buyer', label: 'Overview', icon: 'layout_dashboard', exact: true },
@@ -7,6 +13,7 @@ const NAV: NavItem[] = [
   { href: '/buyer/wishlist', label: 'Wishlist', icon: 'heart' },
   { href: '/buyer/addresses', label: 'Addresses', icon: 'map_pin' },
   { href: '/buyer/messages', label: 'Messages', icon: 'message_square' },
+  { href: '/buyer/support', label: 'Support', icon: 'life_buoy' },
   { href: '/buyer/settings', label: 'Settings', icon: 'settings' }
 ];
 

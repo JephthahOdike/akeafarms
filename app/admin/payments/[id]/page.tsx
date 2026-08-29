@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, CreditCard, DollarSign } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatNaira } from '@/lib/utils';
@@ -21,6 +22,7 @@ export default async function AdminPaymentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission('payments.view');
   const { id } = await params;
   const supabase = await createClient();
 

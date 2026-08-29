@@ -14,7 +14,7 @@ export default async function SellerStorePage() {
 
   const { data: store } = await supabase
     .from('stores')
-    .select('id, name, slug, description, logo_url, is_active, is_approved')
+    .select('id, name, slug, description, logo_url, is_active, verification_status')
     .eq('seller_id', sellerId)
     .single();
 
@@ -133,7 +133,7 @@ export default async function SellerStorePage() {
               )}
               <div>
                 <CardTitle className="text-lg">{store?.name || 'No store yet'}</CardTitle>
-                <CardDescription>{store?.is_approved ? 'Approved' : store?.is_active ? 'Pending approval' : 'Inactive'}</CardDescription>
+                <CardDescription>{store?.verification_status === 'approved' ? 'Approved' : store?.is_active ? 'Pending approval' : 'Inactive'}</CardDescription>
               </div>
             </div>
           </CardHeader>

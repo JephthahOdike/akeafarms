@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { Plus, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Button } from '@/components/ui/button';
 import { CategoryDeleteButton } from '@/components/admin/category-delete-button';
 
 export const metadata = { title: 'Categories' };
 
 export default async function AdminCategoriesPage() {
+  await requirePermission('products.manage');
   const supabase = await createClient();
 
   const { data: categories } = await supabase

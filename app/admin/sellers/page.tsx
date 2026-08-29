@@ -1,10 +1,12 @@
 import { CheckCircle, Clock, Ban, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requireAnyPermission } from '@/lib/auth/helpers';
 import { SellerActions } from '@/components/admin/seller-actions';
 
 export const metadata = { title: 'Sellers' };
 
 export default async function AdminSellersPage() {
+  await requireAnyPermission(['sellers.view', 'sellers.manage']);
   const supabase = await createClient();
 
   const { data: sellers } = await supabase

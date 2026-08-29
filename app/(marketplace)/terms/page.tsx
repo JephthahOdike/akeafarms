@@ -1,4 +1,11 @@
-export const metadata = { title: 'Terms of Service' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Terms of Service',
+  description:
+    'The terms and conditions governing the use of the Akea Farms agricultural marketplace.',
+  path: '/terms'
+});
 
 export default function TermsPage() {
   return (

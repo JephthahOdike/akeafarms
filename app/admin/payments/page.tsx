@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { DollarSign, CheckCircle, Clock, XCircle, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ export default async function AdminPaymentsPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
+  await requirePermission('payments.view');
   const { q, status } = await searchParams;
   const supabase = await createClient();
 

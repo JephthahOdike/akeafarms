@@ -4,12 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/auth/helpers';
 import { formatNaira } from '@/lib/utils';
+import { getPlatformSettings } from '@/lib/settings/platform';
 import { createClient } from '@/lib/supabase/server';
 import { Logo } from '@/components/brand/logo';
 import { UserMenu } from '@/components/layout/user-menu';
 import { CheckoutForm } from './_checkout-form';
 
-export const metadata = { title: 'Checkout' };
+// Private user area: never indexed by search engines.
+export const metadata = {
+  title: 'Checkout',
+  robots: { index: false, follow: false }
+};
 
 /* ------------------------------------------------------------------ */
 /*  Type helpers                                                       */
@@ -190,7 +195,9 @@ export default async function CheckoutPage() {
 
   const sellerGroups = groupBySeller(cartData.cartItems as any);
   const itemsTotal = sellerGroups.reduce((sum, g) => sum + g.subtotal, 0);
-  const shippingFee = 500;
+  // Display only — the checkout API re-computes the fee server-side and
+  // rejects the order if the client total does not match.
+  const { shippingFlatFee: shippingFee } = await getPlatformSettings();
   const grandTotal = itemsTotal + shippingFee;
 
   return (

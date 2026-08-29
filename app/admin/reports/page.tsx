@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { FileText, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Button } from '@/components/ui/button';
 
 export const metadata = { title: 'Admin Reports' };
 
 export default async function AdminReportsPage() {
+  await requirePermission('reports.view');
   const supabase = await createClient();
 
   const { count: totalUsers } = await supabase.from('profiles').select('id', { count: 'exact', head: true });

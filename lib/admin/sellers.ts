@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/service';
-import { requireRole } from '@/lib/auth/helpers';
+import { requirePermission } from '@/lib/auth/helpers';
 import { logAudit } from '@/lib/audit';
 import { sendSellerApproved, sendSellerRejected } from '@/lib/email';
 
@@ -39,7 +39,7 @@ async function getSellerEmail(
 }
 
 export async function approveSeller(sellerId: string): Promise<SellerActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('sellers.manage');
   const service = createServiceClient();
 
   const seller = await getSeller(service, sellerId);
@@ -92,7 +92,7 @@ export async function rejectSeller(
   sellerId: string,
   reason?: string
 ): Promise<SellerActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('sellers.manage');
   const service = createServiceClient();
 
   const seller = await getSeller(service, sellerId);
@@ -162,7 +162,7 @@ export async function suspendSeller(
   sellerId: string,
   reason: string
 ): Promise<SellerActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('sellers.manage');
   const service = createServiceClient();
 
   const seller = await getSeller(service, sellerId);
@@ -198,7 +198,7 @@ export async function suspendSeller(
 }
 
 export async function unsuspendSeller(sellerId: string): Promise<SellerActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('sellers.manage');
   const service = createServiceClient();
 
   const seller = await getSeller(service, sellerId);

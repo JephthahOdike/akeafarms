@@ -1,9 +1,14 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/helpers';
 import { Button } from '@/components/ui/button';
-import { formatNaira } from '@/lib/utils';
+import { formatNaira, SITE_NAME } from '@/lib/utils';
+import { absoluteUrl } from '@/lib/seo';
+import { productJsonLd, breadcrumbJsonLd } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
 import {
   Leaf,
   Star,
@@ -11,6 +16,7 @@ import {
   Truck,
   ChevronLeft,
   ShoppingCart,
+  MessageSquare,
   Package,
   MapPin,
   Calendar,
@@ -30,18 +36,47 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
   const { data: product } = await supabase
     .from('products')
-    .select('name')
+    .select('name, description, product_images(url)')
     .eq('slug', slug)
     .eq('status', 'active')
     .maybeSingle();
 
+  if (!product) {
+    return {
+      title: 'Product not found',
+      robots: { index: false, follow: false }
+    };
+  }
+
+  const images = (product.product_images as { url: string }[] | null) ?? [];
+  const primaryImage = images.find((image) => image.url)?.url;
+  const description =
+    product.description?.replace(/\s+/g, ' ').trim().slice(0, 157).trim() ||
+    `Buy ${product.name} fresh from verified Nigerian farmers on ${SITE_NAME}.`;
+
   return {
-    title: product?.name ?? 'Product not found',
+    title: product.name,
+    description,
+    alternates: { canonical: `/products/${slug}` },
+    openGraph: {
+      title: product.name,
+      description,
+      url: `/products/${slug}`,
+      siteName: SITE_NAME,
+      type: 'website',
+      locale: 'en_NG',
+      ...(primaryImage ? { images: [{ url: absoluteUrl(primaryImage) }] } : {})
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      description
+    }
   };
 }
 
@@ -58,12 +93,13 @@ export default async function ProductDetailPage({
   const supabase = await createClient();
 
   /* ----- product + store + images + seller profile ----- */
+  const user = await getCurrentUser();
   const { data: product } = await supabase
     .from('products')
     .select(
       `id, name, slug, description, price, compare_at_price, currency, unit,
        weight_kg, quality_grade, organic, packaging_info, harvest_date,
-       available_from, store_id, category_id,
+       available_from, status, store_id, category_id,
        product_images(url, alt_text, is_primary),
        stores!inner(id, name, slug, seller_id, logo_url, farm_name, farm_state,
          organic_certified)`
@@ -152,6 +188,29 @@ export default async function ProductDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+      {/* Structured data: Product + BreadcrumbList */}
+      <JsonLd
+        data={productJsonLd({
+          name: productName,
+          slug: product.slug as string,
+          description: productDescription,
+          price: productPrice,
+          currency: productCurrency,
+          status: (product.status as string | null) ?? null,
+          images: images.map((img) => ({
+            url: (img.url as string | null) ?? null,
+            alt_text: (img.alt_text as string | null) ?? null
+          }))
+        })}
+      />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Products', path: '/products' },
+          { name: productName, path: `/products/${slug}` }
+        ])}
+      />
+
       {/* ----- Breadcrumb ----- */}
       <nav className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-primary transition-colors">
@@ -307,13 +366,23 @@ export default async function ProductDetailPage({
             )}
           </div>
 
-          {/* Add to cart */}
-          <Button asChild size="lg" className="mt-2 w-full sm:w-auto">
-            <Link href={`/cart?add=${product.id}`}>
-              <ShoppingCart className="size-5" />
-              Add to Cart
-            </Link>
-          </Button>
+          {/* Add to cart + message seller */}
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <Link href={`/cart?add=${product.id}`}>
+                <ShoppingCart className="size-5" />
+                Add to Cart
+              </Link>
+            </Button>
+            {user && (
+              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                <Link href={`/buyer/messages/new?product=${product.id}`}>
+                  <MessageSquare className="size-5" />
+                  Message Seller
+                </Link>
+              </Button>
+            )}
+          </div>
 
           {/* Sold by */}
           {storeName && (

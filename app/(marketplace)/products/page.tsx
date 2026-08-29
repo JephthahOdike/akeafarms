@@ -6,15 +6,64 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatNaira, cn } from '@/lib/utils';
 
+import type { Metadata } from 'next';
 import MobileFilters from './_mobile-filters';
-
-export const metadata = { title: 'All Products' };
+import { SITE_NAME } from '@/lib/utils';
+import { itemListJsonLd } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
 
 type SearchParams = Promise<{
   q?: string;
   category?: string;
   sort?: string;
 }>;
+
+export async function generateMetadata({
+  searchParams
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { q, category } = await searchParams;
+  const trimmedQ = q?.trim();
+
+  // Search-result URLs are filtered views of the marketplace: keep them out
+  // of the index but allow crawling so linked products are still discovered.
+  if (trimmedQ) {
+    return {
+      title: `Search results for "${trimmedQ}"`,
+      robots: { index: false, follow: true },
+      alternates: { canonical: '/products' }
+    };
+  }
+
+  const categoryLabel =
+    category && category !== 'all'
+      ? category
+          .split('-')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
+      : undefined;
+
+  const title = categoryLabel ? `${categoryLabel} Products` : 'All Products';
+  const description = categoryLabel
+    ? `Browse ${categoryLabel.toLowerCase()} from verified Nigerian farmers and agro-businesses on ${SITE_NAME}.`
+    : 'Browse fresh farm produce, grains, vegetables, livestock and more from verified Nigerian farmers on Akea Farms.';
+
+  return {
+    title,
+    description,
+    alternates: { canonical: '/products' },
+    openGraph: {
+      title,
+      description,
+      url: '/products',
+      siteName: SITE_NAME,
+      type: 'website',
+      locale: 'en_NG'
+    },
+    twitter: { card: 'summary_large_image', title, description }
+  };
+}
 
 export default async function ProductsPage({
   searchParams
@@ -32,8 +81,7 @@ export default async function ProductsPage({
        product_images(url, is_primary),
        stores!inner(name, slug)`
     )
-    .eq('status', 'active')
-    .eq('is_approved', true);
+    .eq('status', 'active');
 
   if (q) {
     query = query.textSearch('tsv', q, { type: 'websearch' });
@@ -77,6 +125,16 @@ export default async function ProductsPage({
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      {/* Structured data: ItemList of marketplace products */}
+      {products && products.length > 0 && (
+        <JsonLd
+          data={itemListJsonLd(
+            'All Products',
+            products.map((p) => ({ name: p.name, path: `/products/${p.slug}` }))
+          )}
+        />
+      )}
+
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8">

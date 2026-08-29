@@ -2,8 +2,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Leaf } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata = { title: 'Categories' };
+export const metadata = buildPageMetadata({
+  title: 'Categories',
+  description:
+    'Explore all farm product categories on Akea Farms: grains, tubers, vegetables, fruits, livestock, poultry, cash crops and processed foods.',
+  path: '/categories'
+});
 
 const CATEGORY_IMAGES: Record<string, string> = {
   'grains-cereals': 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',

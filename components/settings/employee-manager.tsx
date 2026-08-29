@@ -2,26 +2,26 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, UserCog, Check, Loader2, ArrowUpRight } from 'lucide-react';
+import {
+  Shield,
+  Check,
+  Loader2,
+  ArrowUpRight,
+  ArrowDownRight,
+  UserX,
+  UserCheck
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   grantPermission,
   revokePermission,
-  upgradeToEmployee
+  upgradeToEmployee,
+  deactivateEmployee,
+  reactivateEmployee,
+  downgradeEmployee
 } from '@/lib/settings/actions';
+import { EMPLOYEE_PERMISSIONS } from '@/lib/auth/permissions';
 import type { EmployeeWithPermissions } from '@/lib/settings/actions';
-
-const PERMISSIONS = [
-  { key: 'orders.view', label: 'View Orders' },
-  { key: 'orders.manage', label: 'Manage Orders' },
-  { key: 'products.manage', label: 'Manage Products' },
-  { key: 'sellers.manage', label: 'Manage Sellers' },
-  { key: 'users.manage', label: 'Manage Users' },
-  { key: 'payments.view', label: 'View Payments' },
-  { key: 'support.manage', label: 'Manage Support' },
-  { key: 'reports.view', label: 'View Reports' },
-  { key: 'settings.manage', label: 'Manage Settings' }
-];
 
 function roleBadge(role: string) {
   const colors: Record<string, string> = {
@@ -40,27 +40,53 @@ export function EmployeeManager({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const run = (fn: () => Promise<unknown>) => {
+    startTransition(async () => {
+      await fn();
+      router.refresh();
+    });
+  };
+
   const handleTogglePerm = (
     employeeId: string,
     permission: string,
     hasIt: boolean
   ) => {
-    startTransition(async () => {
-      if (hasIt) {
-        await revokePermission(employeeId, permission);
-      } else {
-        await grantPermission(employeeId, permission);
-      }
-      router.refresh();
-    });
+    run(() =>
+      hasIt
+        ? revokePermission(employeeId, permission)
+        : grantPermission(employeeId, permission)
+    );
   };
 
   const handleUpgrade = (userId: string) => {
-    if (!confirm('Upgrade this user to employee? They will gain access to the admin dashboard.')) return;
-    startTransition(async () => {
-      await upgradeToEmployee(userId);
-      router.refresh();
-    });
+    if (!confirm('Upgrade this user to employee? They will gain access to the admin dashboard.'))
+      return;
+    run(() => upgradeToEmployee(userId));
+  };
+
+  const handleDeactivate = (userId: string) => {
+    if (
+      !confirm(
+        'Deactivate this employee? They will be signed out and unable to log in. Their permissions are preserved.'
+      )
+    )
+      return;
+    run(() => deactivateEmployee(userId));
+  };
+
+  const handleReactivate = (userId: string) => {
+    run(() => reactivateEmployee(userId));
+  };
+
+  const handleDowngrade = (userId: string) => {
+    if (
+      !confirm(
+        'Remove employee status? Their role will revert and ALL permissions will be revoked. This cannot be undone.'
+      )
+    )
+      return;
+    run(() => downgradeEmployee(userId));
   };
 
   if (employees.length === 0) {
@@ -81,6 +107,11 @@ export function EmployeeManager({
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-sm">{emp.full_name}</span>
                 <span className={roleBadge(emp.role)}>{emp.role}</span>
+                {emp.role === 'employee' && !emp.is_active && (
+                  <span className="inline-flex rounded-full border border-red-200 bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                    Deactivated
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{emp.email}</p>
             </div>
@@ -97,16 +128,51 @@ export function EmployeeManager({
                 Make Employee
               </Button>
             ) : (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                <Shield className="size-3.5" />
-                Employee
-              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Shield className="size-3.5" />
+                  Employee
+                </span>
+                {emp.is_active ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeactivate(emp.id)}
+                    disabled={isPending}
+                  >
+                    <UserX className="mr-1 size-3.5" />
+                    Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleReactivate(emp.id)}
+                    disabled={isPending}
+                  >
+                    <UserCheck className="mr-1 size-3.5" />
+                    Reactivate
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleDowngrade(emp.id)}
+                  disabled={isPending}
+                >
+                  <ArrowDownRight className="mr-1 size-3.5" />
+                  Remove Employee
+                </Button>
+              </div>
             )}
           </div>
 
           {emp.role === 'employee' && (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {PERMISSIONS.map((perm) => {
+              {EMPLOYEE_PERMISSIONS.map((perm) => {
                 const hasIt = emp.permissions.includes(perm.key);
                 return (
                   <label
@@ -127,6 +193,12 @@ export function EmployeeManager({
                   </label>
                 );
               })}
+            </div>
+          )}
+          {isPending && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              Updating…
             </div>
           )}
         </div>

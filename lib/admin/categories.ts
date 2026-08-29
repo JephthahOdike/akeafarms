@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/service';
-import { requireRole } from '@/lib/auth/helpers';
+import { requirePermission } from '@/lib/auth/helpers';
 import { logAudit } from '@/lib/audit';
 import { slugify } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ export async function createCategory(
   _prev: CategoryActionResult | null,
   formData: FormData
 ): Promise<CategoryActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('products.manage');
   const service = createServiceClient();
 
   const raw: Record<string, unknown> = Object.fromEntries(formData.entries());
@@ -92,7 +92,7 @@ export async function updateCategory(
   _prev: CategoryActionResult | null,
   formData: FormData
 ): Promise<CategoryActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('products.manage');
   const service = createServiceClient();
 
   const raw: Record<string, unknown> = Object.fromEntries(formData.entries());
@@ -143,7 +143,7 @@ export async function updateCategory(
 export async function deleteCategory(
   categoryId: string
 ): Promise<CategoryActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('products.manage');
   const service = createServiceClient();
 
   // Deletion safety: a category still referenced by products, subcategories

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { getPlatformSettings } from '@/lib/settings/platform';
 import { slugify } from '@/lib/utils';
 
 const productSchema = z.object({
@@ -107,9 +108,7 @@ export async function createProductAction(
       category_id: data.category_id,
       store_id: store.id,
       status: isDraft ? 'draft' : 'active',
-      is_approved: false,
-      currency: 'NGN',
-      stock_quantity: data.stock ?? 0
+      currency: 'NGN'
     })
     .select('id')
     .single();

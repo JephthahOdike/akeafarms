@@ -2,7 +2,14 @@ import Link from 'next/link';
 import { Tag, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export const metadata = { title: 'Deals' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Deals',
+  description:
+    'Special deals and discounted farm products available now on Akea Farms.',
+  path: '/deals'
+});
 
 export default function DealsPage() {
   return (

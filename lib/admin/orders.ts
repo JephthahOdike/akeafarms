@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/service';
-import { requireRole } from '@/lib/auth/helpers';
+import { requirePermission } from '@/lib/auth/helpers';
 import { logAudit } from '@/lib/audit';
 import { shouldNotify } from '@/lib/notifications/preferences';
 import { sendOrderStatusUpdate } from '@/lib/email';
@@ -20,7 +20,7 @@ export type AdminOrderActionResult = { success?: boolean; error?: string };
 export async function adminCancelOrder(
   orderId: string
 ): Promise<AdminOrderActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('orders.manage');
   const service = createServiceClient();
 
   const { data: order } = await service
@@ -112,7 +112,7 @@ export async function adminCancelOrder(
 export async function adminCompleteOrder(
   orderId: string
 ): Promise<AdminOrderActionResult> {
-  const admin = await requireRole('admin');
+  const admin = await requirePermission('orders.manage');
   const service = createServiceClient();
 
   const { data: order } = await service

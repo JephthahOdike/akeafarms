@@ -8,6 +8,7 @@ import {
   Heart,
   MapPin,
   MessageSquare,
+  MessagesSquare,
   User,
   Store,
   Package,
@@ -20,6 +21,7 @@ import {
   Truck,
   BarChart3,
   Tag,
+  LifeBuoy,
   type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -37,6 +39,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   heart: Heart,
   map_pin: MapPin,
   message_square: MessageSquare,
+  messages_square: MessagesSquare,
   user: User,
   store: Store,
   package: Package,
@@ -48,7 +51,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   receipt: Receipt,
   truck: Truck,
   bar_chart3: BarChart3,
-  tag: Tag
+  tag: Tag,
+  life_buoy: LifeBuoy
 };
 
 export function DashboardNav({ items }: { items: NavItem[] }) {

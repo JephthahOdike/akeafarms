@@ -25,8 +25,8 @@ export default async function SellerProductsPage() {
     ? await supabase
         .from('products')
         .select(
-          `id, name, slug, price, unit, status, is_approved, organic,
-           stock_quantity, created_at,
+          `id, name, slug, price, unit, status, organic,
+           created_at,
            product_images(url, is_primary)`
         )
         .eq('store_id', store.id)
@@ -81,19 +81,14 @@ export default async function SellerProductsPage() {
                   <p className="text-sm text-primary font-medium">{formatNaira(product.price)} / {product.unit}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      product.status === 'active' && product.is_approved
+                      product.status === 'active'
                         ? 'bg-green-100 text-green-800'
-                        : product.status === 'pending'
+                        : product.status === 'draft'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {product.is_approved ? product.status : 'Pending approval'}
+                      {product.status.replace('_', ' ')}
                     </span>
-                    {product.stock_quantity != null && (
-                      <span className="text-xs text-muted-foreground">
-                        Stock: {product.stock_quantity}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <Link

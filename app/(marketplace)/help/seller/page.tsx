@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export const metadata = { title: 'Seller Help' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Seller Help',
+  description:
+    'Guides for sellers on Akea Farms: getting started, listing products, managing orders and payouts.',
+  path: '/help/seller'
+});
 
 export default function SellerHelpPage() {
   return (

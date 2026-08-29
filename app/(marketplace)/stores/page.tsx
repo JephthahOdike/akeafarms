@@ -1,8 +1,14 @@
 import Link from 'next/link';
 import { Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { buildPageMetadata } from '@/lib/seo';
 
-export const metadata = { title: 'All Stores' };
+export const metadata = buildPageMetadata({
+  title: 'All Stores',
+  description:
+    'Discover verified Nigerian farms and agro-businesses selling fresh produce directly on Akea Farms.',
+  path: '/stores'
+});
 
 export default async function StoresPage() {
   const supabase = await createClient();
@@ -13,7 +19,6 @@ export default async function StoresPage() {
       'id, name, slug, description, logo_url, banner_url, farm_name, farm_state, organic_certified, seller_id'
     )
     .eq('is_active', true)
-    .eq('is_approved', true)
     .order('name');
 
   const sellerIds = (stores ?? [])

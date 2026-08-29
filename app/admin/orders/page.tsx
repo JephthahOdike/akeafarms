@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Package, CheckCircle, Clock, XCircle, Eye } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requireAnyPermission } from '@/lib/auth/helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatNaira } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 export const metadata = { title: 'Orders' };
 
 export default async function AdminOrdersPage() {
+  await requireAnyPermission(['orders.view', 'orders.manage']);
   const supabase = await createClient();
 
   const { data: orders } = await supabase

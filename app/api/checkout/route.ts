@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import { sendOrderConfirmation, sendSellerNewOrder } from '@/lib/email';
 import { shouldNotify } from '@/lib/notifications/preferences';
+import { getPlatformSettings } from '@/lib/settings/platform';
 import { SITE_URL } from '@/lib/utils';
 
 /**
@@ -149,7 +150,10 @@ export async function POST(request: NextRequest) {
       const price = Number(item.unit_price_snapshot ?? product?.price ?? 0);
       return sum + price * item.quantity;
     }, 0);
-    const shippingFee = 500; // flat rate for now
+    // Admin-configured flat delivery fee (server-authoritative; the client
+    // total is re-validated against this below).
+    const platformSettings = await getPlatformSettings();
+    const shippingFee = platformSettings.shippingFlatFee;
     const grandTotal = subtotal + shippingFee;
 
     // ------------------------------------------------------------------

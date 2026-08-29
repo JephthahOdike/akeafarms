@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Package, CreditCard, MapPin, User, DollarSign } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requireAnyPermission } from '@/lib/auth/helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { OrderAdminActions } from '@/components/admin/order-admin-actions';
@@ -28,6 +29,7 @@ export default async function AdminOrderDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAnyPermission(['orders.view', 'orders.manage']);
   const { id } = await params;
   const supabase = await createClient();
 
@@ -292,11 +294,6 @@ export default async function AdminOrderDetailPage({
                   <tr key={item.id} className="border-t border-border">
                     <td className="px-3 py-2 font-medium">
                       {item.product_name_snapshot}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {(item.seller?.business_name as string | undefined) ??
-                        (item.store?.name as string | undefined) ??
-                        '—'}
                     </td>
                     <td className="px-3 py-2">{formatNaira(item.unit_price)}</td>
                     <td className="px-3 py-2">{item.quantity}</td>

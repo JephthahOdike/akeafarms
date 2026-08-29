@@ -1,7 +1,32 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Leaf, ShieldCheck, Truck, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { organizationJsonLd, websiteJsonLd } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
+
+export const metadata: Metadata = {
+  title: { absolute: 'Fresh Farm Products Online | Akea Farms' },
+  description:
+    'Buy fresh farm produce, grains, vegetables, fruits, livestock and processed foods directly from verified Nigerian farmers and agro-businesses on Akea Farms.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'Fresh Farm Products Online | Akea Farms',
+    description:
+      'An agricultural marketplace connecting buyers directly with verified Nigerian farmers, distributors, and agro-businesses.',
+    url: '/',
+    siteName: 'Akea Farms',
+    type: 'website',
+    locale: 'en_NG'
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fresh Farm Products Online | Akea Farms',
+    description:
+      'An agricultural marketplace connecting buyers directly with verified Nigerian farmers, distributors, and agro-businesses.'
+  }
+};
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -39,6 +64,10 @@ export default async function HomePage() {
 
   return (
     <div>
+      {/* Structured data for search engines */}
+      <JsonLd data={organizationJsonLd()} />
+      <JsonLd data={websiteJsonLd()} />
+
       {/* ============================== HERO ============================== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/30">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 lg:py-28">

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Banknote, Landmark, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatNaira } from '@/lib/utils';
 import { SettlementActions } from '@/components/admin/settlement-actions';
@@ -21,6 +22,7 @@ export default async function AdminSettlementDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission('settlements.view');
   const { id } = await params;
   const supabase = await createClient();
 

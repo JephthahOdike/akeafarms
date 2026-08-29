@@ -34,7 +34,6 @@ const COLUMNS = [
     title: 'Company',
     links: [
       { href: '/about', label: 'About' },
-      { href: '/blog', label: 'Blog' },
       { href: '/terms', label: 'Terms' },
       { href: '/privacy', label: 'Privacy' }
     ]

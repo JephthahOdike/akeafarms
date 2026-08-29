@@ -4,7 +4,14 @@ import { Leaf, MapPin, CreditCard, Users, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const metadata = { title: 'About Akea Farms' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'About Akea Farms',
+  description:
+    'Learn about Akea Farms — our mission to connect buyers directly with verified Nigerian farmers, distributors and agro-businesses.',
+  path: '/about'
+});
 
 export default function AboutPage() {
   return (

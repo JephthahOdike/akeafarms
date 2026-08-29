@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
+import { requirePermission } from '@/lib/auth/helpers';
 import { CategoryForm } from '@/components/admin/category-form';
 
 export const metadata = { title: 'Add Category' };
 
 export default async function NewCategoryPage() {
+  await requirePermission('products.manage');
   const supabase = await createClient();
 
   const { data: parents } = await supabase

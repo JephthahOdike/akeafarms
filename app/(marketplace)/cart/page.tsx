@@ -10,7 +10,11 @@ import CartSummary from './_cart-summary';
 import { Logo } from '@/components/brand/logo';
 import { UserMenu } from '@/components/layout/user-menu';
 
-export const metadata = { title: 'Your Cart' };
+// Private user area: never indexed by search engines.
+export const metadata = {
+  title: 'Your Cart',
+  robots: { index: false, follow: false }
+};
 
 export default async function CartPage() {
   const user = await getCurrentUser();

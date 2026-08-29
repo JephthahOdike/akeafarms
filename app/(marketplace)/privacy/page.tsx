@@ -1,4 +1,11 @@
-export const metadata = { title: 'Privacy Policy' };
+import { buildPageMetadata } from '@/lib/seo';
+
+export const metadata = buildPageMetadata({
+  title: 'Privacy Policy',
+  description:
+    'How Akea Farms collects, uses and safeguards your personal information.',
+  path: '/privacy'
+});
 
 export default function PrivacyPage() {
   return (
