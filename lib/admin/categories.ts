@@ -146,6 +146,41 @@ export async function deleteCategory(
   const admin = await requireRole('admin');
   const service = createServiceClient();
 
+  // Deletion safety: a category still referenced by products, subcategories
+  // or commission overrides must never be removed — deleting it would either
+  // fail on FK constraints or break existing products. Deactivate instead.
+  const [productsRes, childrenRes, ratesRes] = await Promise.all([
+    service
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId),
+    service
+      .from('categories')
+      .select('id', { count: 'exact', head: true })
+      .eq('parent_id', categoryId),
+    service
+      .from('commission_rates')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId)
+  ]);
+
+  if (productsRes.count && productsRes.count > 0) {
+    return {
+      error: `Cannot delete: ${productsRes.count} product(s) still use this category. Reassign them first, or deactivate the category instead.`
+    };
+  }
+  if (childrenRes.count && childrenRes.count > 0) {
+    return {
+      error: `Cannot delete: this category has ${childrenRes.count} subcategory(ies). Remove or reassign them first.`
+    };
+  }
+  if (ratesRes.count && ratesRes.count > 0) {
+    return {
+      error:
+        'Cannot delete: this category has commission rate overrides. Remove them first (Settlements → Commission).'
+    };
+  }
+
   const { error } = await service
     .from('categories')
     .delete()

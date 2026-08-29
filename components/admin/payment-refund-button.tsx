@@ -13,6 +13,7 @@ export function PaymentRefundButton({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   if (status === 'refunded') {
     return <span className="text-sm text-muted-foreground">Refunded</span>;
@@ -22,20 +23,22 @@ export function PaymentRefundButton({
   async function handleRefund() {
     if (
       !window.confirm(
-        'Refund this payment? This marks the payment and its order as refunded.'
+        'Refund this payment? This marks the payment and its order as refunded and reverses seller wallet earnings.'
       )
     ) {
       return;
     }
     setPending(true);
     setError(null);
+    setWarning(null);
     const res = await refundPayment(paymentId);
     setPending(false);
     if (res?.error) setError(res.error);
+    if (res?.warning) setWarning(res.warning);
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         onClick={handleRefund}
         disabled={pending}
@@ -45,6 +48,7 @@ export function PaymentRefundButton({
       </button>
       {pending && <Loader2 className="size-4 animate-spin" />}
       {error && <span className="text-xs text-destructive">{error}</span>}
+      {warning && <span className="text-xs text-amber-600">{warning}</span>}
     </div>
   );
 }

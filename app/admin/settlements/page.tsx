@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Percent, DollarSign } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +39,9 @@ export default async function AdminCommissionsPage() {
 
   const { data: settlements } = await supabase
     .from('settlements')
-    .select('id, settlement_number, seller_id, amount, status, rejection_reason, created_at')
+    .select(
+      'id, settlement_number, seller_id, amount, status, rejection_reason, paystack_transfer_code, paystack_reference, created_at'
+    )
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -117,7 +120,12 @@ export default async function AdminCommissionsPage() {
                         <p className="font-semibold">{formatNaira(s.amount)}</p>
                         <p className="text-xs text-muted-foreground">
                           {sellerNameById.get(s.seller_id) || 'Unknown seller'} ·{' '}
-                          {s.settlement_number || s.id.slice(0, 8)}
+                          <Link
+                            href={`/admin/settlements/${s.id}`}
+                            className="underline underline-offset-2 hover:text-foreground"
+                          >
+                            {s.settlement_number || s.id.slice(0, 8)}
+                          </Link>
                         </p>
                       </div>
                       <span
@@ -129,6 +137,15 @@ export default async function AdminCommissionsPage() {
                         {s.status}
                       </span>
                     </div>
+                    {(s.paystack_transfer_code || s.paystack_reference) && (
+                      <p className="mt-1 font-mono text-xs break-all text-muted-foreground">
+                        {s.paystack_transfer_code || ''}
+                        {s.paystack_transfer_code && s.paystack_reference
+                          ? ' · '
+                          : ''}
+                        {s.paystack_reference || ''}
+                      </p>
+                    )}
                     {s.status === 'rejected' && s.rejection_reason && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {s.rejection_reason}

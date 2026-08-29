@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Package, CreditCard, MapPin, User } from 'lucide-react';
+import { ArrowLeft, Package, CreditCard, MapPin, User, DollarSign } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { OrderAdminActions } from '@/components/admin/order-admin-actions';
 import { formatNaira } from '@/lib/utils';
 
 export const metadata = { title: 'Order Detail' };
@@ -73,6 +74,57 @@ export default async function AdminOrderDetailPage({
         .order('occurred_at', { ascending: false })
     : { data: [] };
 
+  // Seller earnings ledger — written by process_paystack_charge() once the
+  // payment is confirmed (reference_type 'order', reference_id = order id).
+  const { data: earnings } = await supabase
+    .from('wallet_transactions')
+    .select('seller_id, amount')
+    .eq('reference_type', 'order')
+    .eq('reference_id', id)
+    .eq('type', 'seller_earning');
+
+  type SellerRow = {
+    sellerId: string;
+    label: string;
+    itemCount: number;
+    gross: number;
+    net: number;
+    hasEarning: boolean;
+  };
+
+  const sellerMap = new Map<string, SellerRow>();
+  for (const item of items ?? []) {
+    const sellerId = item.seller_id as string;
+    const label =
+      (item.seller?.business_name as string | undefined) ??
+      (item.store?.name as string | undefined) ??
+      'Unknown seller';
+    const row = sellerMap.get(sellerId) ?? {
+      sellerId,
+      label,
+      itemCount: 0,
+      gross: 0,
+      net: 0,
+      hasEarning: false
+    };
+    row.itemCount += 1;
+    row.gross += Number(item.line_total) || 0;
+    sellerMap.set(sellerId, row);
+  }
+  for (const tx of earnings ?? []) {
+    const row = sellerMap.get(tx.seller_id);
+    if (row) {
+      row.net += Number(tx.amount) || 0;
+      row.hasEarning = true;
+    }
+  }
+  const sellerRows = [...sellerMap.values()].sort((a, b) => b.gross - a.gross);
+  const earningRows = sellerRows.filter((r) => r.hasEarning);
+  const hasLedger = earningRows.length > 0;
+  const totalGross = earningRows.reduce((sum, r) => sum + r.gross, 0);
+  const totalNet = earningRows.reduce((sum, r) => sum + r.net, 0);
+  const totalCommission = totalGross - totalNet;
+
   const statusBadge = (status: string) =>
     `rounded-full px-2 py-0.5 text-xs font-medium ${
       STATUS_COLORS[status] ?? 'bg-muted text-muted-foreground'
@@ -93,10 +145,38 @@ export default async function AdminOrderDetailPage({
           <p className="text-sm text-muted-foreground mt-1">
             Placed {new Date(order.created_at).toLocaleString('en-NG')}
           </p>
+          {(order.paid_at ||
+            order.completed_at ||
+            order.cancelled_at ||
+            order.refunded_at) && (
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              {order.paid_at && (
+                <p>Paid {new Date(order.paid_at).toLocaleString('en-NG')}</p>
+              )}
+              {order.completed_at && (
+                <p>
+                  Completed {new Date(order.completed_at).toLocaleString('en-NG')}
+                </p>
+              )}
+              {order.cancelled_at && (
+                <p>
+                  Cancelled {new Date(order.cancelled_at).toLocaleString('en-NG')}
+                </p>
+              )}
+              {order.refunded_at && (
+                <p>
+                  Refunded {new Date(order.refunded_at).toLocaleString('en-NG')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
-        <span className={statusBadge(order.status)}>
-          {order.status.replace(/_/g, ' ')}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={statusBadge(order.status)}>
+            {order.status.replace(/_/g, ' ')}
+          </span>
+          <OrderAdminActions orderId={order.id} status={order.status} />
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -213,6 +293,11 @@ export default async function AdminOrderDetailPage({
                     <td className="px-3 py-2 font-medium">
                       {item.product_name_snapshot}
                     </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {(item.seller?.business_name as string | undefined) ??
+                        (item.store?.name as string | undefined) ??
+                        '—'}
+                    </td>
                     <td className="px-3 py-2">{formatNaira(item.unit_price)}</td>
                     <td className="px-3 py-2">{item.quantity}</td>
                     <td className="px-3 py-2">{formatNaira(item.line_total)}</td>
@@ -229,6 +314,72 @@ export default async function AdminOrderDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {sellerRows.length ? (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <DollarSign className="size-4" /> Sellers &amp; Earnings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Seller</th>
+                    <th className="px-3 py-2 text-left font-medium">Items</th>
+                    <th className="px-3 py-2 text-left font-medium">Gross</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      Platform Commission
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      Seller Earning
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sellerRows.map((row) => (
+                    <tr key={row.sellerId} className="border-t border-border">
+                      <td className="px-3 py-2 font-medium">{row.label}</td>
+                      <td className="px-3 py-2">{row.itemCount}</td>
+                      <td className="px-3 py-2">{formatNaira(row.gross)}</td>
+                      <td className="px-3 py-2">
+                        {row.hasEarning
+                          ? formatNaira(row.gross - row.net)
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.hasEarning ? formatNaira(row.net) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  {hasLedger && (
+                    <tr className="border-t border-border font-medium">
+                      <td className="px-3 py-2">Total</td>
+                      <td className="px-3 py-2">
+                        {sellerRows.reduce((sum, r) => sum + r.itemCount, 0)}
+                      </td>
+                      <td className="px-3 py-2">{formatNaira(totalGross)}</td>
+                      <td className="px-3 py-2">
+                        {formatNaira(totalCommission)}
+                      </td>
+                      <td className="px-3 py-2">{formatNaira(totalNet)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {!hasLedger && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Seller earnings are credited to seller wallets once payment is
+                confirmed. Platform commission is deducted per seller at the
+                applicable rate (default 15%).
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {trackingEvents?.length ? (
         <Card className="mt-4">

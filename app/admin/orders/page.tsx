@@ -17,7 +17,7 @@ export default async function AdminOrdersPage() {
     .limit(100);
 
   const completed = orders?.filter((o) => o.status === 'delivered' || o.status === 'completed').length ?? 0;
-  const pending = orders?.filter((o) => o.status === 'paid' || o.status === 'processing' || o.status === 'pending').length ?? 0;
+  const pending = orders?.filter((o) => o.status === 'created' || o.status === 'paid').length ?? 0;
 
   return (
     <div>

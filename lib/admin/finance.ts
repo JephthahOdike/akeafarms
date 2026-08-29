@@ -6,8 +6,13 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { requireRole } from '@/lib/auth/helpers';
 import { logAudit } from '@/lib/audit';
 import { sendSettlementPaid } from '@/lib/email';
+import { formatNaira } from '@/lib/utils';
 
-export type FinanceActionResult = { success?: boolean; error?: string };
+export type FinanceActionResult = {
+  success?: boolean;
+  error?: string;
+  warning?: string;
+};
 
 const percentageSchema = z.coerce
   .number()
@@ -268,22 +273,43 @@ export async function markSettlementPaid(
     return { error: 'Only approved settlements can be marked paid.' };
   }
 
-  const { error } = await service
-    .from('settlements')
-    .update({
-      status: 'paid',
-      processed_at: new Date().toISOString(),
-      processed_by: admin.id
-    })
-    .eq('id', settlementId);
+  // Atomic payout: moves available_balance -> settled_balance, writes the
+  // immutable 'seller_settlement' ledger row and marks the settlement paid
+  // (SECURITY DEFINER — wallet balances are only ever mutated by RPCs).
+  const { data, error } = await service.rpc('process_settlement_payout', {
+    p_settlement_id: settlementId,
+    p_admin_id: admin.id
+  });
 
   if (error) return { error: 'Failed to mark settlement as paid.' };
+
+  const result = data as {
+    status?: string;
+    available?: number;
+    required?: number;
+  } | null;
+  if (!result) return { error: 'Settlement payout returned no result.' };
+  if (result.status === 'invalid_status') {
+    return { error: 'Only approved settlements can be marked paid.' };
+  }
+  if (result.status === 'no_wallet') {
+    return { error: 'Seller wallet not found for this settlement.' };
+  }
+  if (result.status === 'insufficient_available_balance') {
+    return {
+      error: `Insufficient wallet balance: available ${formatNaira(Number(result.available ?? 0))} is less than the settlement amount ${formatNaira(Number(result.required ?? 0))}.`
+    };
+  }
+  if (result.status !== 'success' && result.status !== 'already_paid') {
+    return { error: `Settlement payout failed: ${result.status}.` };
+  }
 
   await logAudit({
     user_id: admin.id,
     action: 'settlement_paid',
     resource: 'settlements',
-    resource_id: settlementId
+    resource_id: settlementId,
+    metadata: { amount: settlement.amount }
   });
 
   // Notify the seller (non-blocking — settlement must not fail over email).
@@ -358,18 +384,33 @@ export async function refundPayment(
     return { error: 'Only successful payments can be refunded.' };
   }
 
-  // Mark the payment and its order as refunded.
-  const { error } = await service
-    .from('payments')
-    .update({ status: 'refunded' })
-    .eq('id', paymentId);
+  // Atomic refund: marks the payment/order/items refunded AND reverses seller
+  // wallet balances with immutable 'refund' ledger rows (SECURITY DEFINER —
+  // wallet balances are only ever mutated by RPCs). Earnings already settled
+  // out are reported as a shortfall for manual recovery, never silently lost.
+  const { data, error } = await service.rpc('process_refund', {
+    p_payment_id: paymentId,
+    p_admin_id: admin.id
+  });
 
   if (error) return { error: 'Failed to refund payment.' };
 
-  await service
-    .from('orders')
-    .update({ status: 'refunded' })
-    .eq('id', payment.order_id);
+  const result = data as {
+    status?: string;
+    total_reversed?: number;
+    total_shortfall?: number;
+  } | null;
+  if (!result || result.status === 'not_found') {
+    return { error: 'Refund could not be processed for this payment.' };
+  }
+  if (result.status === 'invalid_status') {
+    return { error: 'Only successful payments can be refunded.' };
+  }
+  if (result.status !== 'success' && result.status !== 'already_refunded') {
+    return { error: `Refund failed: ${result.status}.` };
+  }
+
+  const shortfall = Number(result.total_shortfall ?? 0);
 
   await logAudit({
     user_id: admin.id,
@@ -379,11 +420,20 @@ export async function refundPayment(
     metadata: {
       amount: payment.amount,
       provider_reference: payment.provider_reference,
-      order_id: payment.order_id
+      order_id: payment.order_id,
+      wallet_reversed: Number(result.total_reversed ?? 0),
+      wallet_shortfall: shortfall
     }
   });
 
   revalidatePath('/admin/payments');
   revalidatePath(`/admin/payments/${paymentId}`);
-  return { success: true };
+  if (payment.order_id) revalidatePath(`/admin/orders/${payment.order_id}`);
+  return {
+    success: true,
+    warning:
+      shortfall > 0
+        ? `Refund processed. ${formatNaira(shortfall)} of seller earnings could not be reversed from wallets (already settled) — recover manually.`
+        : undefined
+  };
 }
